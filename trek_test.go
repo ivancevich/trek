@@ -199,3 +199,129 @@ func TestRegisterDuplicates(t *testing.T) {
 	migrations = []migration{}
 }
 
+func TestRunMigrationsError(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer db.Close()
+	config := &configuration{Database: POSTGRES, Action: "foo"}
+	dtbs := &database{db, config}
+	newVersion, err := runMigrations(dtbs, 0)
+	if newVersion != 0 {
+		t.Error("Expected new version to be 0")
+	}
+	if err == nil {
+		t.Error("Expected unrecognized action error")
+	}
+	if err.Error() != errUnrecognizedAction.Error() {
+		t.Error("Expected unrecognized action error")
+	}
+}
+
+func TestRunError(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer db.Close()
+	didChange, newVersion, err := Run(db)
+	if didChange {
+		t.Error("Expected not to change version")
+	}
+	if newVersion != 0 {
+		t.Error("Expected new version to be 0")
+	}
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+func TestRunPostgresUp(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer db.Close()
+	migrations = []migration{
+		{
+			Version: 1,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return nil },
+		},
+	}
+	didChange, newVersion, err := Run(db, POSTGRES, UP)
+	if !didChange {
+		t.Error("Expected to change version")
+	}
+	if newVersion != 1 {
+		t.Error("Expected new version to be 1")
+	}
+	if err != nil {
+		t.Error(err.Error())
+	}
+	migrations = []migration{}
+}
+
+func TestRunPostgresDown(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer db.Close()
+	migrations = []migration{
+		{
+			Version: 1,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return nil },
+		},
+	}
+	didChange, newVersion, err := Run(db, POSTGRES, DOWN)
+	if !didChange {
+		t.Error("Expected to change version")
+	}
+	if newVersion != 0 {
+		t.Error("Expected new version to be 0")
+	}
+	if err != nil {
+		t.Error(err.Error())
+	}
+	migrations = []migration{}
+	dropTable(t, db, "migrations")
+}
+
+func TestRunMysqlUp(t *testing.T) {
+	db := connect(t, MYSQL)
+	defer db.Close()
+	migrations = []migration{
+		{
+			Version: 1,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return nil },
+		},
+	}
+	didChange, newVersion, err := Run(db, MYSQL, UP)
+	if !didChange {
+		t.Error("Expected to change version")
+	}
+	if newVersion != 1 {
+		t.Error("Expected new version to be 1")
+	}
+	if err != nil {
+		t.Error(err.Error())
+	}
+	migrations = []migration{}
+}
+
+func TestRunMysqlDown(t *testing.T) {
+	db := connect(t, MYSQL)
+	defer db.Close()
+	migrations = []migration{
+		{
+			Version: 1,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return nil },
+		},
+	}
+	didChange, newVersion, err := Run(db, MYSQL, DOWN)
+	if !didChange {
+		t.Error("Expected to change version")
+	}
+	if newVersion != 0 {
+		t.Error("Expected new version to be 0")
+	}
+	if err != nil {
+		t.Error(err.Error())
+	}
+	migrations = []migration{}
+	dropTable(t, db, "migrations")
+}
+
