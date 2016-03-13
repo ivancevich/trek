@@ -13,6 +13,7 @@ var (
 	errUnrecognizedDatabase      = errors.New("trek: unrecognized database")
 	errUnrecognizedAction        = errors.New("trek: unrecognized action")
 	errPreviousMigrationNotFound = errors.New("trek: previous migration not found")
+	errVersionAlreadyRegistered  = errors.New("Version already registered")
 )
 
 const (
@@ -27,12 +28,16 @@ const (
 )
 
 // Register adds migrations to be runned
-func Register(version int64, up, down migrationHandler) {
+func Register(version int64, up, down migrationHandler) error {
+	if versionAlreadyRegistered(version) {
+		return errVersionAlreadyRegistered
+	}
 	migrations = append(migrations, migration{
 		Version: version,
 		Up:      up,
 		Down:    down,
 	})
+	return nil
 }
 
 // Run executes database migrations
@@ -201,6 +206,15 @@ func setVersion(db *database, version int64) error {
 
 	_, err = stmt.Exec(version)
 	return err
+}
+
+func versionAlreadyRegistered(version int64) bool {
+	for _, m := range migrations {
+		if m.Version == version {
+			return true
+		}
+	}
+	return false
 }
 
 type migrationHandler func(*sql.DB) error
