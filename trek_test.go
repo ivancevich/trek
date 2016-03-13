@@ -166,3 +166,36 @@ func TestGetVersion1(t *testing.T) {
 	dropTable(t, db, "migrations")
 }
 
+func TestRegister(t *testing.T) {
+	var up = func(*sql.DB) error { return nil }
+	var down = func(*sql.DB) error { return nil }
+	err := Register(1, up, down)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if len(migrations) != 1 {
+		t.Error("Expected migrations to have one migration")
+	}
+	if migrations[0].Version != 1 {
+		t.Error("Expected migration to have version equal to 1")
+	}
+	migrations = []migration{}
+}
+
+func TestRegisterDuplicates(t *testing.T) {
+	var up = func(*sql.DB) error { return nil }
+	var down = func(*sql.DB) error { return nil }
+	err := Register(1, up, down)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = Register(1, up, down)
+	if err == nil {
+		t.Error("Expected duplicate version error")
+	}
+	if err.Error() != errVersionAlreadyRegistered.Error() {
+		t.Error("Expected duplicate version error")
+	}
+	migrations = []migration{}
+}
+
