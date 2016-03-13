@@ -92,7 +92,7 @@ func createTable(db *database) error {
 		query = `CREATE TABLE IF NOT EXISTS migrations (id SERIAL PRIMARY KEY, version BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW())`
 		break
 	case MYSQL:
-		query = `CREATE TABLE IF NOT EXISTS migrations (id AUTO_INCREMENT PRIMARY KEY, version BIGINT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`
+		query = `CREATE TABLE IF NOT EXISTS migrations (id BIGINT PRIMARY KEY AUTO_INCREMENT, version BIGINT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`
 		break
 	default:
 		return errUnrecognizedDatabase
