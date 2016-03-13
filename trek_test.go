@@ -87,7 +87,7 @@ func TestCreateTableError(t *testing.T) {
 	if err == nil {
 		t.Error("Error expected")
 	}
-	if err.Error() != errUnrecognizedDatabase.Error() {
+	if err != errUnrecognizedDatabase {
 		t.Error("Unrecognized database was expected")
 	}
 }
@@ -193,7 +193,7 @@ func TestRegisterDuplicates(t *testing.T) {
 	if err == nil {
 		t.Error("Expected duplicate version error")
 	}
-	if err.Error() != errVersionAlreadyRegistered.Error() {
+	if err != errVersionAlreadyRegistered {
 		t.Error("Expected duplicate version error")
 	}
 	migrations = []migration{}
@@ -208,7 +208,7 @@ func TestSetVersionError(t *testing.T) {
 	if err == nil {
 		t.Error("Expected unrecognized database error")
 	}
-	if err.Error() != errUnrecognizedDatabase.Error() {
+	if err != errUnrecognizedDatabase {
 		t.Error("Expected unrecognized database error")
 	}
 }
@@ -225,7 +225,7 @@ func TestRunMigrationsError(t *testing.T) {
 	if err == nil {
 		t.Error("Expected unrecognized action error")
 	}
-	if err.Error() != errUnrecognizedAction.Error() {
+	if err != errUnrecognizedAction {
 		t.Error("Expected unrecognized action error")
 	}
 }
