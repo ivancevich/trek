@@ -199,6 +199,20 @@ func TestRegisterDuplicates(t *testing.T) {
 	migrations = []migration{}
 }
 
+func TestSetVersionError(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer db.Close()
+	config := &configuration{Database: "foo", Action: UP}
+	dtbs := &database{db, config}
+	err := setVersion(dtbs, 9)
+	if err == nil {
+		t.Error("Expected unrecognized database error")
+	}
+	if err.Error() != errUnrecognizedDatabase.Error() {
+		t.Error("Expected unrecognized database error")
+	}
+}
+
 func TestRunMigrationsError(t *testing.T) {
 	db := connect(t, POSTGRES)
 	defer db.Close()
