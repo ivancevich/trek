@@ -2,19 +2,30 @@ package trek
 
 import (
 	"database/sql"
-	_ "github.com/lib/pq" // postgres driver
-	"strings"
+	_ "github.com/go-sql-driver/mysql" // mysql driver
+	_ "github.com/lib/pq"              // postgres driver
 	"testing"
 )
 
-func connect(t *testing.T) (db *sql.DB) {
-	parts := []string{"user=postgres", "dbname=trek", "sslmode=disable"}
-
+func connect(t *testing.T, kind string) (db *sql.DB) {
 	var err error
 
-	db, err = sql.Open(POSTGRES, strings.Join(parts, " "))
+	var options string
+	switch kind {
+	case POSTGRES:
+		options = "user=postgres dbname=trek sslmode=disable"
+		break
+	case MYSQL:
+		options = "root:@/trek"
+		break
+	default:
+		t.Error("Unsupported database kind")
+		return
+	}
+
+	db, err = sql.Open(kind, options)
 	if err != nil {
-		t.Error("Error connecting to Postgres")
+		t.Errorf("Error connecting to %s", kind)
 		return
 	}
 
@@ -68,7 +79,7 @@ func TestParseOptionsCustomValues2(t *testing.T) {
 }
 
 func TestCreateTableError(t *testing.T) {
-	db := connect(t)
+	db := connect(t, POSTGRES)
 	defer db.Close()
 	config := &configuration{Database: "foo", Action: DOWN}
 	dtbs := &database{db, config}
@@ -82,7 +93,7 @@ func TestCreateTableError(t *testing.T) {
 }
 
 func TestCreateTablePostgres(t *testing.T) {
-	db := connect(t)
+	db := connect(t, POSTGRES)
 	defer db.Close()
 	config := &configuration{Database: POSTGRES, Action: UP}
 	dtbs := &database{db, config}
@@ -97,8 +108,24 @@ func TestCreateTablePostgres(t *testing.T) {
 	dropTable(t, db, "migrations")
 }
 
+func TestCreateTableMysql(t *testing.T) {
+	db := connect(t, MYSQL)
+	defer db.Close()
+	config := &configuration{Database: MYSQL, Action: UP}
+	dtbs := &database{db, config}
+	err := createTable(dtbs)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	_, err = db.Query(`SELECT * FROM migrations`)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	dropTable(t, db, "migrations")
+}
+
 func TestGetVersion0(t *testing.T) {
-	db := connect(t)
+	db := connect(t, POSTGRES)
 	defer db.Close()
 	config := &configuration{Database: POSTGRES, Action: UP}
 	dtbs := &database{db, config}
@@ -117,7 +144,7 @@ func TestGetVersion0(t *testing.T) {
 }
 
 func TestGetVersion1(t *testing.T) {
-	db := connect(t)
+	db := connect(t, POSTGRES)
 	defer db.Close()
 	config := &configuration{Database: POSTGRES, Action: UP}
 	dtbs := &database{db, config}
