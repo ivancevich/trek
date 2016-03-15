@@ -2,6 +2,7 @@ package trek
 
 import (
 	"database/sql"
+	"errors"
 	_ "github.com/go-sql-driver/mysql" // mysql driver
 	_ "github.com/lib/pq"              // postgres driver
 	"testing"
@@ -339,6 +340,147 @@ func TestRunMysqlDown(t *testing.T) {
 	}
 	if err != nil {
 		t.Error(err.Error())
+	}
+}
+
+func TestRunUpSameVersion(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer teardown(t, db)
+	migrations = []migration{
+		{
+			Version: 1,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return nil },
+		},
+	}
+	Run(db, POSTGRES, UP)                               // migrate to version 1
+	didChange, newVersion, err := Run(db, POSTGRES, UP) // migrate to version 1 again
+	if didChange {
+		t.Error("Expected not to change version")
+	}
+	if newVersion != 1 {
+		t.Error("Expected new version to be 1")
+	}
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+func TestRunDownSameVersion(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer teardown(t, db)
+	migrations = []migration{
+		{
+			Version: 1,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return nil },
+		},
+	}
+	Run(db, POSTGRES, UP)                                 // migrate to version 1
+	Run(db, POSTGRES, DOWN)                               // migrate to version 0
+	didChange, newVersion, err := Run(db, POSTGRES, DOWN) // migrate to version 0 again
+	if didChange {
+		t.Error("Expected not to change version")
+	}
+	if newVersion != 0 {
+		t.Error("Expected new version to be 0")
+	}
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+func TestRunUpWithError(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer teardown(t, db)
+	migrations = []migration{
+		{
+			Version: 1,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return nil },
+		},
+		{
+			Version: 2,
+			Up:      func(*sql.DB) error { return errors.New("Foo") },
+			Down:    func(*sql.DB) error { return nil },
+		},
+	}
+	didChange, newVersion, err := Run(db, POSTGRES, UP)
+	if !didChange {
+		t.Error("Expected to change version")
+	}
+	if newVersion != 1 {
+		t.Error("Expected new version to be 1")
+	}
+	if err == nil {
+		t.Error("Expected 'Foo' error")
+	}
+	if err.Error() != "Foo" {
+		t.Error("Expected 'Foo' error")
+	}
+}
+
+func TestRunDownWithError(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer teardown(t, db)
+	migrations = []migration{
+		{
+			Version: 2,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return errors.New("Foo") },
+		},
+		{
+			Version: 1,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return nil },
+		},
+	}
+	Run(db, POSTGRES, UP) // migrate to version 2
+	didChange, newVersion, err := Run(db, POSTGRES, DOWN)
+	if didChange {
+		t.Error("Expected not to change version")
+	}
+	if newVersion != 2 {
+		t.Error("Expected new version to be 2")
+	}
+	if err == nil {
+		t.Error("Expected 'Foo' error")
+	}
+	if err.Error() != "Foo" {
+		t.Error("Expected 'Foo' error")
+	}
+}
+
+func TestRunDownWithoutMigration(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer teardown(t, db)
+	migrations = []migration{
+		{
+			Version: 1,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return nil },
+		},
+	}
+	Run(db, POSTGRES, UP) // migrate to version 1
+	migrations = []migration{
+		{
+			Version: 2,
+			Up:      func(*sql.DB) error { return nil },
+			Down:    func(*sql.DB) error { return nil },
+		},
+	}
+	didChange, newVersion, err := Run(db, POSTGRES, DOWN)
+	if didChange {
+		t.Error("Expected not to change version")
+	}
+	if newVersion != 1 {
+		t.Error("Expected new version to be 1")
+	}
+	if err == nil {
+		t.Error("Expected previous migration error")
+	}
+	if err != errPreviousMigrationNotFound {
+		t.Error("Expected previous migration error")
 	}
 }
 
