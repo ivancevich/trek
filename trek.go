@@ -13,7 +13,7 @@ var (
 	errUnrecognizedDatabase      = errors.New("trek: unrecognized database")
 	errUnrecognizedAction        = errors.New("trek: unrecognized action")
 	errPreviousMigrationNotFound = errors.New("trek: previous migration not found")
-	errVersionAlreadyRegistered  = errors.New("Version already registered")
+	errVersionAlreadyRegistered  = errors.New("trek: version already registered")
 )
 
 const (
