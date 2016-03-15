@@ -45,7 +45,16 @@ func dropTable(t *testing.T, db *sql.DB, table string) {
 	}
 }
 
+func teardown(t *testing.T, db *sql.DB) {
+	migrations = []migration{}
+	if db != nil {
+		dropTable(t, db, "migrations")
+		db.Close()
+	}
+}
+
 func TestParseOptionsDefaultValues(t *testing.T) {
+	defer teardown(t, nil)
 	options := []interface{}{}
 	config := parseOptions(options)
 	if config.Action != UP {
@@ -57,6 +66,7 @@ func TestParseOptionsDefaultValues(t *testing.T) {
 }
 
 func TestParseOptionsCustomValues1(t *testing.T) {
+	defer teardown(t, nil)
 	options := []interface{}{POSTGRES, UP}
 	config := parseOptions(options)
 	if config.Action != UP {
@@ -68,6 +78,7 @@ func TestParseOptionsCustomValues1(t *testing.T) {
 }
 
 func TestParseOptionsCustomValues2(t *testing.T) {
+	defer teardown(t, nil)
 	options := []interface{}{MYSQL, DOWN}
 	config := parseOptions(options)
 	if config.Action != DOWN {
@@ -80,7 +91,7 @@ func TestParseOptionsCustomValues2(t *testing.T) {
 
 func TestCreateTableError(t *testing.T) {
 	db := connect(t, POSTGRES)
-	defer db.Close()
+	defer teardown(t, db)
 	config := &configuration{Database: "foo", Action: DOWN}
 	dtbs := &database{db, config}
 	err := createTable(dtbs)
@@ -94,7 +105,7 @@ func TestCreateTableError(t *testing.T) {
 
 func TestCreateTablePostgres(t *testing.T) {
 	db := connect(t, POSTGRES)
-	defer db.Close()
+	defer teardown(t, db)
 	config := &configuration{Database: POSTGRES, Action: UP}
 	dtbs := &database{db, config}
 	err := createTable(dtbs)
@@ -105,12 +116,11 @@ func TestCreateTablePostgres(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	dropTable(t, db, "migrations")
 }
 
 func TestCreateTableMysql(t *testing.T) {
 	db := connect(t, MYSQL)
-	defer db.Close()
+	defer teardown(t, db)
 	config := &configuration{Database: MYSQL, Action: UP}
 	dtbs := &database{db, config}
 	err := createTable(dtbs)
@@ -121,12 +131,11 @@ func TestCreateTableMysql(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	dropTable(t, db, "migrations")
 }
 
 func TestGetVersion0(t *testing.T) {
 	db := connect(t, POSTGRES)
-	defer db.Close()
+	defer teardown(t, db)
 	config := &configuration{Database: POSTGRES, Action: UP}
 	dtbs := &database{db, config}
 	err := createTable(dtbs)
@@ -140,12 +149,11 @@ func TestGetVersion0(t *testing.T) {
 	if currentVersion != 0 {
 		t.Error("Expected version different from 0")
 	}
-	dropTable(t, db, "migrations")
 }
 
 func TestGetVersion1(t *testing.T) {
 	db := connect(t, POSTGRES)
-	defer db.Close()
+	defer teardown(t, db)
 	config := &configuration{Database: POSTGRES, Action: UP}
 	dtbs := &database{db, config}
 	err := createTable(dtbs)
@@ -163,10 +171,10 @@ func TestGetVersion1(t *testing.T) {
 	if currentVersion != 1 {
 		t.Error("Expected version different from 1")
 	}
-	dropTable(t, db, "migrations")
 }
 
 func TestRegister(t *testing.T) {
+	defer teardown(t, nil)
 	var up = func(*sql.DB) error { return nil }
 	var down = func(*sql.DB) error { return nil }
 	err := Register(1, up, down)
@@ -179,10 +187,10 @@ func TestRegister(t *testing.T) {
 	if migrations[0].Version != 1 {
 		t.Error("Expected migration to have version equal to 1")
 	}
-	migrations = []migration{}
 }
 
 func TestRegisterDuplicates(t *testing.T) {
+	defer teardown(t, nil)
 	var up = func(*sql.DB) error { return nil }
 	var down = func(*sql.DB) error { return nil }
 	err := Register(1, up, down)
@@ -196,12 +204,11 @@ func TestRegisterDuplicates(t *testing.T) {
 	if err != errVersionAlreadyRegistered {
 		t.Error("Expected duplicate version error")
 	}
-	migrations = []migration{}
 }
 
 func TestSetVersionError(t *testing.T) {
 	db := connect(t, POSTGRES)
-	defer db.Close()
+	defer teardown(t, db)
 	config := &configuration{Database: "foo", Action: UP}
 	dtbs := &database{db, config}
 	err := setVersion(dtbs, 9)
@@ -215,7 +222,7 @@ func TestSetVersionError(t *testing.T) {
 
 func TestRunMigrationsError(t *testing.T) {
 	db := connect(t, POSTGRES)
-	defer db.Close()
+	defer teardown(t, db)
 	config := &configuration{Database: POSTGRES, Action: "foo"}
 	dtbs := &database{db, config}
 	newVersion, err := runMigrations(dtbs, 0)
@@ -232,7 +239,7 @@ func TestRunMigrationsError(t *testing.T) {
 
 func TestRunError(t *testing.T) {
 	db := connect(t, POSTGRES)
-	defer db.Close()
+	defer teardown(t, db)
 	didChange, newVersion, err := Run(db)
 	if didChange {
 		t.Error("Expected not to change version")
@@ -247,7 +254,7 @@ func TestRunError(t *testing.T) {
 
 func TestRunPostgresUp(t *testing.T) {
 	db := connect(t, POSTGRES)
-	defer db.Close()
+	defer teardown(t, db)
 	migrations = []migration{
 		{
 			Version: 1,
@@ -265,12 +272,11 @@ func TestRunPostgresUp(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	migrations = []migration{}
 }
 
 func TestRunPostgresDown(t *testing.T) {
 	db := connect(t, POSTGRES)
-	defer db.Close()
+	defer teardown(t, db)
 	migrations = []migration{
 		{
 			Version: 1,
@@ -278,6 +284,7 @@ func TestRunPostgresDown(t *testing.T) {
 			Down:    func(*sql.DB) error { return nil },
 		},
 	}
+	Run(db, POSTGRES, UP) // migrate to version 1
 	didChange, newVersion, err := Run(db, POSTGRES, DOWN)
 	if !didChange {
 		t.Error("Expected to change version")
@@ -288,13 +295,11 @@ func TestRunPostgresDown(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	migrations = []migration{}
-	dropTable(t, db, "migrations")
 }
 
 func TestRunMysqlUp(t *testing.T) {
 	db := connect(t, MYSQL)
-	defer db.Close()
+	defer teardown(t, db)
 	migrations = []migration{
 		{
 			Version: 1,
@@ -312,12 +317,11 @@ func TestRunMysqlUp(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	migrations = []migration{}
 }
 
 func TestRunMysqlDown(t *testing.T) {
 	db := connect(t, MYSQL)
-	defer db.Close()
+	defer teardown(t, db)
 	migrations = []migration{
 		{
 			Version: 1,
@@ -325,6 +329,7 @@ func TestRunMysqlDown(t *testing.T) {
 			Down:    func(*sql.DB) error { return nil },
 		},
 	}
+	Run(db, MYSQL, UP) // migrate to version 1
 	didChange, newVersion, err := Run(db, MYSQL, DOWN)
 	if !didChange {
 		t.Error("Expected to change version")
@@ -335,7 +340,5 @@ func TestRunMysqlDown(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	migrations = []migration{}
-	dropTable(t, db, "migrations")
 }
 
