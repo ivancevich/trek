@@ -132,6 +132,8 @@ func runMigrations(db *database, oldVersion int64) (newVersion int64, err error)
 }
 
 func runUp(db *database, oldVersion int64) (newVersion int64, err error) {
+	newVersion = oldVersion
+
 	for _, m := range migrations {
 		if m.Version <= oldVersion {
 			continue
@@ -160,6 +162,8 @@ func runDown(db *database, oldVersion int64) (newVersion int64, err error) {
 		return
 	}
 
+	newVersion = oldVersion
+
 	var m *migration
 	for i := len(migrations) - 1; i >= 0; i-- {
 		if migrations[i].Version <= oldVersion {
@@ -180,8 +184,12 @@ func runDown(db *database, oldVersion int64) (newVersion int64, err error) {
 		}
 	}
 
+	err = setVersion(db, m.Version-1)
+	if err != nil {
+		return
+	}
+
 	newVersion = m.Version - 1
-	err = setVersion(db, newVersion)
 	return
 }
 
