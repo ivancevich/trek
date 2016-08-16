@@ -9,11 +9,11 @@ import (
 
 var (
 	migrations                   []migration
-	errNoRows                    = errors.New("sql: no rows in result set")
 	errUnrecognizedDatabase      = errors.New("trek: unrecognized database")
 	errUnrecognizedAction        = errors.New("trek: unrecognized action")
 	errPreviousMigrationNotFound = errors.New("trek: previous migration not found")
 	errVersionAlreadyRegistered  = errors.New("trek: version already registered")
+	errMigrationAlreadyRunning   = errors.New("trek: migration already running")
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 	MYSQL = "mysql"
 )
 
-// Register adds migrations to be runned
+// Register adds migrations to be run
 func Register(version int64, up, down migrationHandler) error {
 	if versionAlreadyRegistered(version) {
 		return errVersionAlreadyRegistered
@@ -94,10 +94,10 @@ func createTable(db *database) error {
 
 	switch db.Database {
 	case POSTGRES:
-		query = `CREATE TABLE IF NOT EXISTS migrations (id SERIAL PRIMARY KEY, version BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW())`
+		query = `CREATE TABLE IF NOT EXISTS migrations (id SERIAL PRIMARY KEY, version BIGINT NOT NULL, running BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW())`
 		break
 	case MYSQL:
-		query = `CREATE TABLE IF NOT EXISTS migrations (id BIGINT PRIMARY KEY AUTO_INCREMENT, version BIGINT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`
+		query = `CREATE TABLE IF NOT EXISTS migrations (id BIGINT PRIMARY KEY AUTO_INCREMENT, version BIGINT NOT NULL, running BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`
 		break
 	default:
 		return errUnrecognizedDatabase
@@ -108,10 +108,16 @@ func createTable(db *database) error {
 }
 
 func getVersion(db *database) (currentVersion int64, err error) {
-	err = db.QueryRow(`SELECT version FROM migrations ORDER BY id DESC LIMIT 1`).Scan(&currentVersion)
-	if err != nil && err.Error() == errNoRows.Error() {
-		currentVersion = 0
-		err = nil
+	var running bool
+	if err = db.QueryRow(`SELECT version, running FROM migrations ORDER BY id DESC LIMIT 1`).Scan(&currentVersion, &running); err != nil {
+		if err == sql.ErrNoRows {
+			currentVersion = 0
+			err = nil
+		}
+		return
+	}
+	if running {
+		err = errMigrationAlreadyRunning
 	}
 	return
 }
@@ -135,19 +141,19 @@ func runUp(db *database, oldVersion int64) (newVersion int64, err error) {
 	newVersion = oldVersion
 
 	for _, m := range migrations {
-		if m.Version <= oldVersion {
+		if m.Version <= oldVersion || m.Up == nil {
 			continue
 		}
 
-		if m.Up != nil {
-			err = m.Up(db.DB)
-			if err != nil {
-				return
-			}
+		if err = setVersion(db, m.Version, true); err != nil {
+			return
 		}
 
-		err = setVersion(db, m.Version)
-		if err != nil {
+		if err = m.Up(db.DB); err != nil {
+			return
+		}
+
+		if err = setVersion(db, m.Version, false); err != nil {
 			return
 		}
 
@@ -177,15 +183,17 @@ func runDown(db *database, oldVersion int64) (newVersion int64, err error) {
 		return
 	}
 
+	if err = setVersion(db, m.Version-1, true); err != nil {
+		return
+	}
+
 	if m.Down != nil {
-		err = m.Down(db.DB)
-		if err != nil {
+		if err = m.Down(db.DB); err != nil {
 			return
 		}
 	}
 
-	err = setVersion(db, m.Version-1)
-	if err != nil {
+	if err = setVersion(db, m.Version-1, false); err != nil {
 		return
 	}
 
@@ -193,15 +201,15 @@ func runDown(db *database, oldVersion int64) (newVersion int64, err error) {
 	return
 }
 
-func setVersion(db *database, version int64) error {
+func setVersion(db *database, version int64, running bool) error {
 	var query string
 
 	switch db.Database {
 	case POSTGRES:
-		query = `INSERT INTO migrations (version) VALUES ($1)`
+		query = `INSERT INTO migrations (version, running) VALUES ($1, $2)`
 		break
 	case MYSQL:
-		query = `INSERT INTO migrations (version) VALUES (?)`
+		query = `INSERT INTO migrations (version, running) VALUES (?, ?)`
 		break
 	default:
 		return errUnrecognizedDatabase
@@ -212,7 +220,7 @@ func setVersion(db *database, version int64) error {
 		return err
 	}
 
-	_, err = stmt.Exec(version)
+	_, err = stmt.Exec(version, running)
 	return err
 }
 

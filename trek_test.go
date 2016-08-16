@@ -161,7 +161,7 @@ func TestGetVersion1(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	_, err = db.Exec(`INSERT INTO migrations (version) VALUES (1)`)
+	_, err = db.Exec(`INSERT INTO migrations (version, running) VALUES (1, false)`)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -171,6 +171,28 @@ func TestGetVersion1(t *testing.T) {
 	}
 	if currentVersion != 1 {
 		t.Error("Expected version different from 1")
+	}
+}
+
+func TestGetVersionError(t *testing.T) {
+	db := connect(t, POSTGRES)
+	defer teardown(t, db)
+	config := &configuration{Database: POSTGRES, Action: UP}
+	dtbs := &database{db, config}
+	err := createTable(dtbs)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	_, err = db.Exec(`INSERT INTO migrations (version, running) VALUES (1, true)`)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	_, err = getVersion(dtbs)
+	if err == nil {
+		t.Error("Expected already running migration error")
+	}
+	if err != errMigrationAlreadyRunning {
+		t.Error("Expected already running migration error")
 	}
 }
 
@@ -212,7 +234,7 @@ func TestSetVersionError(t *testing.T) {
 	defer teardown(t, db)
 	config := &configuration{Database: "foo", Action: UP}
 	dtbs := &database{db, config}
-	err := setVersion(dtbs, 9)
+	err := setVersion(dtbs, 9, false)
 	if err == nil {
 		t.Error("Expected unrecognized database error")
 	}
@@ -483,4 +505,3 @@ func TestRunDownWithoutMigration(t *testing.T) {
 		t.Error("Expected previous migration error")
 	}
 }
-
