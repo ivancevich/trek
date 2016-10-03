@@ -3,7 +3,6 @@ package trek
 import (
 	"database/sql"
 	"errors"
-	"reflect"
 	"sort"
 )
 
@@ -41,7 +40,7 @@ func Register(version int64, up, down migrationHandler) error {
 }
 
 // Run executes database migrations
-func Run(db *sql.DB, options ...interface{}) (didChange bool, newVersion int64, err error) {
+func Run(db *sql.DB, options ...string) (didChange bool, newVersion int64, err error) {
 	if len(migrations) == 0 {
 		return
 	}
@@ -66,23 +65,19 @@ func Run(db *sql.DB, options ...interface{}) (didChange bool, newVersion int64, 
 	return
 }
 
-func parseOptions(options []interface{}) *configuration {
+func parseOptions(options []string) *configuration {
 	config := configuration{Action: UP, Database: POSTGRES}
 
 	for _, opt := range options {
-		value := reflect.ValueOf(opt)
-		if value.Kind() == reflect.String {
-			str := value.String()
-			switch str {
-			case UP:
-			case DOWN:
-				config.Action = str
-				break
-			case POSTGRES:
-			case MYSQL:
-				config.Database = str
-				break
-			}
+		switch opt {
+		case UP:
+		case DOWN:
+			config.Action = opt
+			break
+		case POSTGRES:
+		case MYSQL:
+			config.Database = opt
+			break
 		}
 	}
 

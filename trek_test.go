@@ -56,7 +56,7 @@ func teardown(t *testing.T, db *sql.DB) {
 
 func TestParseOptionsDefaultValues(t *testing.T) {
 	defer teardown(t, nil)
-	options := []interface{}{}
+	options := []string{}
 	config := parseOptions(options)
 	if config.Action != UP {
 		t.Error("Action was not UP")
@@ -68,7 +68,7 @@ func TestParseOptionsDefaultValues(t *testing.T) {
 
 func TestParseOptionsCustomValues1(t *testing.T) {
 	defer teardown(t, nil)
-	options := []interface{}{POSTGRES, UP}
+	options := []string{POSTGRES, UP}
 	config := parseOptions(options)
 	if config.Action != UP {
 		t.Error("Action was not UP")
@@ -80,7 +80,7 @@ func TestParseOptionsCustomValues1(t *testing.T) {
 
 func TestParseOptionsCustomValues2(t *testing.T) {
 	defer teardown(t, nil)
-	options := []interface{}{MYSQL, DOWN}
+	options := []string{MYSQL, DOWN}
 	config := parseOptions(options)
 	if config.Action != DOWN {
 		t.Error("Action was not DOWN")
